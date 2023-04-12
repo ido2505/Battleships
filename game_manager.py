@@ -130,6 +130,13 @@ class GameManager:
         self.enemy_board[x_position][y_position] = tile_status
 
     def player_tile_clicked(self, x_position: int, y_position: int) -> int:
+        """
+        update the player board on the enemy action and check the status of the enemy chosen tile
+        :param x_position: the chosen tile x position
+        :param y_position: the chosen tile y position
+        :return: the status of the chosen tile.
+        if a battleship was hit the board updates to damaged battleship but return battleship index
+        """
         # check if a battleship got hit
         if self.player_board[x_position][y_position] == self.BATTLESHIP_INDEX:
             self.player_board[x_position][y_position] = self.DAMAGED_BATTLESHIP_INDEX
@@ -137,7 +144,12 @@ class GameManager:
 
         return self.player_board[x_position][y_position]
 
-    def check_for_win(self, board_to_check: [int][int]) -> bool:
+    def check_for_win(self, board_to_check: list) -> bool:
+        """
+        check if the current board won
+        :param board_to_check: the board to check the winning
+        :return: True if the board won
+        """
         num_of_damaged_battleships = 0
 
         for i in range(0, self.BOARD_LENGTH):

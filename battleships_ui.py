@@ -1,4 +1,5 @@
 import pygame
+import pygame_gui
 from pygame.locals import *
 import select
 
@@ -9,7 +10,15 @@ from player_communication import PlayerCommunication
 
 class BattleshipsUI:
     WINDOW_HEIGHT = 510
-    WINDOW_WIDTH = 1120
+    WINDOW_WIDTH = 1420
+
+    CHAT_X_POSITION = 1130
+    CHAT_Y_POSITION = 470
+    CHAT_HEIGHT = 30
+    CHAT_WIDTH = 280
+
+    UI_CLOCK_TICKS = 30
+    UI_REFRESH_RATE = UI_CLOCK_TICKS / 1000
 
     TILE_SIZE = 40
     TILE_X_MARGIN = 10
@@ -34,6 +43,12 @@ class BattleshipsUI:
         self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()
 
+        self.chat_ui_manager = pygame_gui.UIManager((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
+        self.chat_text_box = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(
+            (self.CHAT_X_POSITION, self.CHAT_Y_POSITION), (self.CHAT_WIDTH, self.CHAT_HEIGHT)),
+                                                                 manager=self.chat_ui_manager,
+                                                                 object_id='#main_text_entry')
+
         self.game_manager = GameManager()
         self.player_communication = player_communication
 
@@ -46,6 +61,7 @@ class BattleshipsUI:
         """
         this function is the main game loop
         """
+        # the client always start to play
         if isinstance(self.player_communication, client_side.ClientSide):
             my_turn = 1
         else:
@@ -66,14 +82,12 @@ class BattleshipsUI:
 
             # using select for jumping whenever the socket get a message
             ready_socket = select.select([self.player_communication.socket], [], [], self.TIMEOUT)[0]
-            # ready_socket = True
 
             tile_position = self.TILE_NOT_EXIST
             # check for events
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     game_running = False
-                    pygame.quit()
 
                 elif event.type == pygame.MOUSEBUTTONUP:
                     # check if tile was clicked
@@ -83,6 +97,8 @@ class BattleshipsUI:
                             self.player_communication.send_chosen_tile(*tile_position)
                             print("tile picked, position: " + str(tile_position))
                             picked_tile = 1
+                # chat ui process any events
+                self.chat_ui_manager.process_events(event)
 
             # get the tile status
             if my_turn == 1 and picked_tile == 1:
@@ -109,10 +125,28 @@ class BattleshipsUI:
                     my_turn = 1
                     print("my turn now")
 
-            pygame.display.update()
-            self.clock.tick(30)
+            # check for win or lost
+            if self.game_manager.check_for_win(self.game_manager.player_board):
+                # TODO: print player victory
+                print("player won!")
+                game_running = False
 
-    def draw_board(self, start_x_position: int, start_y_position: int, board_to_draw: [int][int]) -> None:
+            elif self.game_manager.check_for_win(self.game_manager.enemy_board):
+                # TODO: print player lost
+                print("player lost!")
+                game_running = False
+
+            # display chat
+            self.chat_ui_manager.update(self.UI_REFRESH_RATE)
+            self.chat_ui_manager.draw_ui(self.screen)
+
+            pygame.display.update()
+            self.clock.tick(self.UI_CLOCK_TICKS)
+
+        self.player_communication.close_communication()
+        pygame.quit()
+
+    def draw_board(self, start_x_position: int, start_y_position: int, board_to_draw: list) -> None:
         """
         Function draws the game board.
         """
@@ -126,6 +160,9 @@ class BattleshipsUI:
                                   self.TILE_SIZE,
                                   self.TILE_SIZE,
                                   ))
+
+    def draw_chat(self):
+        pass
 
     def check_tile_click(self, x_position: int, y_position: int) -> (int, int):
         """
