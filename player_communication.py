@@ -3,15 +3,17 @@ import struct
 
 
 class PlayerCommunication(ABC):
-    COMMUNICATION_PORT = 1337
+    COMMUNICATION_PORT = 1338
 
     STATUS_PRE_MESSAGE = "b"
     TILE_PICK_MESSAGE = "bb"
     GAME_WIN_MESSAGE = "b"
+    TILE_STATUS_MESSAGE = "b"
 
     TILE_PICK_STATUS = 1
-    GAME_WIN_STATUS = 2
-    CHAT_STATUS = 3
+    TILE_STATUS_STATUS = 2
+    GAME_WIN_STATUS = 3
+    CHAT_STATUS = 4
 
     @property
     @abstractmethod
@@ -19,7 +21,7 @@ class PlayerCommunication(ABC):
         pass
 
     def get_message(self):
-        return self.socket.recv()
+        return self.socket.recv(1024)
 
     def send_chosen_tile(self, x_position: int, y_position: int) -> None:
         message = struct.pack(self.STATUS_PRE_MESSAGE + self.TILE_PICK_MESSAGE, self.TILE_PICK_STATUS, x_position,
@@ -28,6 +30,13 @@ class PlayerCommunication(ABC):
 
     def get_chosen_tile(self, data) -> (int, int):
         return struct.unpack(self.TILE_PICK_MESSAGE, data)
+
+    def send_tile_status(self, status: int) -> None:
+        message = struct.pack(self.STATUS_PRE_MESSAGE + self.TILE_STATUS_MESSAGE, self.TILE_STATUS_STATUS, status)
+        self.socket.send(message)
+
+    def get_tile_status(self, data) -> int:
+        return struct.unpack(self.TILE_STATUS_MESSAGE, data)[0]
 
     def send_chat_message(self, message: str) -> None:
         message = struct.pack(self.STATUS_PRE_MESSAGE, self.CHAT_STATUS) + message.encode()

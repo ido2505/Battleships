@@ -9,10 +9,12 @@ class GameManager:
     EMPTY_INDEX = 0
     BATTLESHIP_INDEX = 1
     NEAR_BATTLESHIP_INDEX = 2
+    DAMAGED_BATTLESHIP_INDEX = 3
+    UNKNOWN_INDEX = 4
 
     def __init__(self):
-        self.player_board = [[0 for i in range(self.BOARD_LENGTH)] for j in range(self.BOARD_LENGTH)]
-        self.enemy_board = [[0 for i in range(self.BOARD_LENGTH)] for j in range(self.BOARD_LENGTH)]
+        self.player_board = [[self.EMPTY_INDEX for i in range(self.BOARD_LENGTH)] for j in range(self.BOARD_LENGTH)]
+        self.enemy_board = [[self.UNKNOWN_INDEX for i in range(self.BOARD_LENGTH)] for j in range(self.BOARD_LENGTH)]
         self.generate_player_board()
 
     def generate_player_board(self) -> None:
@@ -122,3 +124,25 @@ class GameManager:
                     self.player_board[x_position - 1][y_position + battleship_length] = self.NEAR_BATTLESHIP_INDEX
                 if x_position != self.BOARD_LENGTH - 1:
                     self.player_board[x_position + 1][y_position + battleship_length] = self.NEAR_BATTLESHIP_INDEX
+
+    def enemy_tile_clicked(self, tile_status: int, x_position: int, y_position: int) -> None:
+        print("enemy tile status: " + str(tile_status))
+        self.enemy_board[x_position][y_position] = tile_status
+
+    def player_tile_clicked(self, x_position: int, y_position: int) -> int:
+        # check if a battleship got hit
+        if self.player_board[x_position][y_position] == self.BATTLESHIP_INDEX:
+            self.player_board[x_position][y_position] = self.DAMAGED_BATTLESHIP_INDEX
+            return self.BATTLESHIP_INDEX
+
+        return self.player_board[x_position][y_position]
+
+    def check_for_win(self, board_to_check: [int][int]) -> bool:
+        num_of_damaged_battleships = 0
+
+        for i in range(0, self.BOARD_LENGTH):
+            for j in range(0, self.BOARD_LENGTH):
+                if board_to_check[i][j] == self.DAMAGED_BATTLESHIP_INDEX:
+                    num_of_damaged_battleships += 1
+
+        return num_of_damaged_battleships == sum(self.BATTLE_SHIPS_LENGTHS)
