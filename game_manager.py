@@ -144,6 +144,9 @@ class GameManager:
 
         return self.player_board[x_position][y_position]
 
+    def check_if_tile_clicked(self, x_position: int, y_position: int) -> bool:
+        return self.enemy_board[x_position][y_position] != self.UNKNOWN_INDEX
+
     def check_for_win(self, board_to_check: list) -> bool:
         """
         check if the current board won

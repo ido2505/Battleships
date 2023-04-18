@@ -1,4 +1,3 @@
-import game_manager
 import battleships_ui
 import player_communication
 import client_side
@@ -11,15 +10,17 @@ import sys
 
 def main():
     # menu_ui.MenuUI()
-    communication = None
     if sys.argv[1] == 'server':
-        communication = server_side.ServerSide()
+        game_communication = server_side.ServerSide(player_communication.DEFAULT_GAME_PORT)
+        chat_communication = server_side.ServerSide(player_communication.DEFAULT_CHAT_PORT)
     elif sys.argv[1] == 'client':
-        communication = client_side.ClientSide(sys.argv[2])
+        game_communication = client_side.ClientSide(sys.argv[2], player_communication.DEFAULT_GAME_PORT)
+        chat_communication = client_side.ClientSide(sys.argv[2], player_communication.DEFAULT_CHAT_PORT)
     else:
         raise Exception
 
-    battleships_ui.BattleshipsUI(communication)
+    game = battleships_ui.BattleshipsUI(game_communication, chat_communication)
+    game.run_game()
 
 
 if __name__ == "__main__":

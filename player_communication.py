@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 import struct
 
+DEFAULT_GAME_PORT = 1338
+DEFAULT_CHAT_PORT = 1400
+
 
 class PlayerCommunication(ABC):
-    COMMUNICATION_PORT = 1338
-
     STATUS_PRE_MESSAGE = "b"
     TILE_PICK_MESSAGE = "bb"
     GAME_WIN_MESSAGE = "b"

@@ -2,6 +2,7 @@ import pygame
 import pygame_gui
 from pygame.locals import *
 import select
+from typing import Tuple, Optional
 
 import client_side
 from game_manager import GameManager
@@ -38,7 +39,7 @@ class BattleshipsUI:
 
     TIMEOUT = 0
 
-    def __init__(self, player_communication: PlayerCommunication):
+    def __init__(self, game_communication: PlayerCommunication, chat_communication: PlayerCommunication):
         pygame.init()
         self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()
@@ -47,27 +48,23 @@ class BattleshipsUI:
         self.chat_text_box = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(
             (self.CHAT_X_POSITION, self.CHAT_Y_POSITION), (self.CHAT_WIDTH, self.CHAT_HEIGHT)),
                                                                  manager=self.chat_ui_manager,
-                                                                 object_id='#main_text_entry')
+                                                                 object_id='#chat_text_entry')
 
         self.game_manager = GameManager()
-        self.player_communication = player_communication
-
-        # using select for jumping whenever the socket get a message
-        self.ready_socket = select.select([self.player_communication.socket], [], [], self.TIMEOUT)[0]
-
-        self.run_game()
+        self.game_communication = game_communication
+        self.chat_communication = chat_communication
 
     def run_game(self) -> None:
         """
         this function is the main game loop
         """
         # the client always start to play
-        if isinstance(self.player_communication, client_side.ClientSide):
-            my_turn = 1
+        if isinstance(self.game_communication, client_side.ClientSide):
+            my_turn = True
         else:
-            my_turn = 0
-
-        picked_tile = 0
+            my_turn = False
+        tile_picked = False
+        chat_sent_message = None
 
         game_running = True
         while game_running:
@@ -76,12 +73,8 @@ class BattleshipsUI:
 
             # draw_player_board
             self.draw_board(600, 0, self.game_manager.player_board)
-
             # draw_enemy board
             self.draw_board(0, 0, self.game_manager.enemy_board)
-
-            # using select for jumping whenever the socket get a message
-            ready_socket = select.select([self.player_communication.socket], [], [], self.TIMEOUT)[0]
 
             tile_position = self.TILE_NOT_EXIST
             # check for events
@@ -89,41 +82,23 @@ class BattleshipsUI:
                 if event.type == pygame.QUIT:
                     game_running = False
 
-                elif event.type == pygame.MOUSEBUTTONUP:
+                if event.type == pygame.MOUSEBUTTONUP:
                     # check if tile was clicked
                     tile_position = self.check_tile_click(*event.pos)
-                    if tile_position != self.TILE_NOT_EXIST and my_turn:
-                        if picked_tile == 0:
-                            self.player_communication.send_chosen_tile(*tile_position)
-                            print("tile picked, position: " + str(tile_position))
-                            picked_tile = 1
+                    tile_picked = self.tile_clicked_handler(my_turn, tile_picked, tile_position)
+
+                if event.type == pygame_gui.UI_TEXT_ENTRY_FINISHED and event.ui_object_id == "#chat_text_entry":
+                    chat_sent_message = event.text
+                    self.chat_text_box.set_text("")
+
                 # chat ui process any events
                 self.chat_ui_manager.process_events(event)
 
-            # get the tile status
-            if my_turn == 1 and picked_tile == 1:
-                message = self.player_communication.get_message()
-                print("got tile status, len: " + str(len(message)))
-                tile_status = self.player_communication.get_tile_status(message[1:])
+            my_turn = self.turn_handler(my_turn, tile_picked, tile_position)
+            tile_picked = False
 
-                self.game_manager.enemy_tile_clicked(tile_status, *tile_position)
-                my_turn = 0
-                picked_tile = 0
-                print("enemy turn now")
-
-            if my_turn == 0:
-                # waiting for the other player to play and get his message
-                if ready_socket:
-                    message = self.player_communication.get_message()
-                    tile_position = self.player_communication.get_chosen_tile(message[1:])
-                    print("got enemy click, tile position: " + str(tile_position))
-                    tile_status = self.game_manager.player_tile_clicked(*tile_position)
-
-                    # send the chosen tile status
-                    self.player_communication.send_tile_status(tile_status)
-
-                    my_turn = 1
-                    print("my turn now")
+            chat_message = self.chat_message_handler(chat_sent_message)
+            chat_sent_message = None
 
             # check for win or lost
             if self.game_manager.check_for_win(self.game_manager.player_board):
@@ -143,8 +118,80 @@ class BattleshipsUI:
             pygame.display.update()
             self.clock.tick(self.UI_CLOCK_TICKS)
 
-        self.player_communication.close_communication()
+        self.game_communication.close_communication()
         pygame.quit()
+
+    def chat_message_handler(self, message_to_send: str = None) -> Optional[str]:
+        """
+        handle chat messaging logic
+        :param message_to_send: if the user have a message to send. can be None if the user don't have a message
+        :return: return a message from the enemy. return None if the enemy don't have new message
+        """
+        ready_chat_socket = select.select([self.chat_communication.socket], [], [], self.TIMEOUT)[0]
+
+        if message_to_send:
+            self.chat_communication.send_chat_message(message_to_send)
+            print("sent this message: " + message_to_send)
+
+        if ready_chat_socket:
+            chat_message = self.chat_communication.get_message().decode()
+            print("new chat message: " + chat_message)
+            return chat_message
+        else:
+            return None
+
+    def tile_clicked_handler(self, my_turn: bool, tile_picked: bool, tile_position: Tuple[int, int]) -> bool:
+        """
+        handle the logic in the tile picking
+        :param my_turn: if the player should play
+        :param tile_picked: if the player already picked a tile
+        :param tile_position: the position of the tile
+        :return: the new tile_picked state
+        """
+        if tile_position != self.TILE_NOT_EXIST and \
+                not self.game_manager.check_if_tile_clicked(*tile_position) and my_turn and not tile_picked:
+            self.game_communication.send_chosen_tile(*tile_position)
+            print("tile picked, position: " + str(tile_position))
+            return True
+        return False
+
+    def turn_handler(self, my_turn: bool, tile_picked: bool = False, tile_position: Tuple[int, int] = None) -> bool:
+        """
+        Do the turn logic.
+        :param my_turn: if the player should play
+        :param tile_picked: if the player picked a tile
+        :param tile_position: the tile that the player picked
+        :return: if now the state of the turn has changed
+        """
+
+        # using select for jumping whenever the socket get a message
+        ready_game_socket = select.select([self.game_communication.socket], [], [], self.TIMEOUT)[0]
+
+        # get the tile status
+        if my_turn and tile_picked:
+            message = self.game_communication.get_message()
+            print("got tile status, len: " + str(len(message)))
+            tile_status = self.game_communication.get_tile_status(message[1:])
+
+            self.game_manager.enemy_tile_clicked(tile_status, *tile_position)
+            print("enemy turn now")
+            return False
+
+        if not my_turn:
+            # waiting for the other player to play and get his message
+            if ready_game_socket:
+                message = self.game_communication.get_message()
+                tile_position = self.game_communication.get_chosen_tile(message[1:])
+                print("got enemy click, tile position: " + str(tile_position))
+                tile_status = self.game_manager.player_tile_clicked(*tile_position)
+
+                # send the chosen tile status
+                self.game_communication.send_tile_status(tile_status)
+
+                print("my turn now")
+                return True
+
+        return my_turn
 
     def draw_board(self, start_x_position: int, start_y_position: int, board_to_draw: list) -> None:
         """
@@ -160,9 +207,6 @@ class BattleshipsUI:
                                   self.TILE_SIZE,
                                   self.TILE_SIZE,
                                   ))
-
-    def draw_chat(self):
-        pass
 
     def check_tile_click(self, x_position: int, y_position: int) -> (int, int):
         """
