@@ -59,9 +59,10 @@ class BattleshipsUI:
 
         self.chat_ui_manager = pygame_gui.UIManager((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
         self.chat_text_box = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(
-            (self.CHAT_TEXT_BOX_X_POSITION, self.CHAT_TEXT_BOX_Y_POSITION), (self.CHAT_TEXT_BOX_WIDTH, self.CHAT_TEXT_BOX_HEIGHT)),
-                                                                 manager=self.chat_ui_manager,
-                                                                 object_id='#chat_text_entry')
+            (self.CHAT_TEXT_BOX_X_POSITION, self.CHAT_TEXT_BOX_Y_POSITION), (self.CHAT_TEXT_BOX_WIDTH,
+                                                                             self.CHAT_TEXT_BOX_HEIGHT)),
+            manager=self.chat_ui_manager,
+            object_id='#chat_text_entry')
 
         self.game_manager = GameManager()
         self.game_communication = game_communication
@@ -141,6 +142,10 @@ class BattleshipsUI:
         pygame.quit()
 
     def display_chat_message(self, message_to_display: str) -> None:
+        """
+        get a message and print it in the chat messages position
+        :param message_to_display: message to display
+        """
         text = self.game_font.render(message_to_display, True, self.CHAT_TEXT_COLOR, self.BACKGROUND_COLOR)
         text_rectangle = text.get_rect()
         text_rectangle.center = (self.CHAT_MESSAGE_TEXT_X_POSITION, self.CHAT_MESSAGE_TEXT_Y_POSITION)

@@ -1,10 +1,19 @@
 import pygame
-import pygame_textinput
+import pygame_gui
+import ipaddress
 
 
 class MenuUI:
     MENU_WINDOW_HEIGHT = 600
     MENU_WINDOW_WIDTH = 220
+
+    TEXT_BOX_X_POSITION = 10
+    TEXT_BOX_Y_POSITION = 110
+    TEXT_BOX_WIDTH = 200
+    TEXT_BOX_HEIGHT = 40
+
+    UI_CLOCK_TICKS = 30
+    UI_REFRESH_RATE = UI_CLOCK_TICKS / 1000
 
     BACKGROUND_COLOR = (255, 255, 255)
 
@@ -14,10 +23,17 @@ class MenuUI:
         self.screen = pygame.display.set_mode((self.MENU_WINDOW_WIDTH, self.MENU_WINDOW_WIDTH))
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 30)
-        self.text_input = pygame_textinput.TextInputVisualizer()
 
         self.menu_buttons = {Button(self.screen, self.font, 'Server', 200, 40, (10, 10), 5): False,
                              Button(self.screen, self.font, 'Connect', 200, 40, (10, 60), 5): False}
+
+        self.text_box_ui_manager = pygame_gui.UIManager((self.MENU_WINDOW_WIDTH, self.MENU_WINDOW_HEIGHT))
+        self.text_box = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(
+            (self.TEXT_BOX_X_POSITION, self.TEXT_BOX_Y_POSITION),
+            (self.TEXT_BOX_WIDTH, self.TEXT_BOX_HEIGHT)),
+            manager=self.text_box_ui_manager,
+            object_id='#ip_text_entry'
+        )
 
         self.run_menu()
 
@@ -26,7 +42,8 @@ class MenuUI:
         this function is the main menu loop
         """
         menu_running = True
-        count_until_quit = 60
+        count_until_quit = 10
+        text_box_ip_address = ""
 
         while menu_running:
             # fill background
@@ -34,30 +51,34 @@ class MenuUI:
 
             self.draw_buttons()
 
-            # pygame.display.flip()
-
             self.check_buttons_click()
 
             events = pygame.event.get()
-
-            # make the text input appear on screen
-            # self.text_input.update(events)
-            # self.screen.blit(self.text_input.surface, (40, 100))
 
             # check for events
             for event in events:
                 if event.type == pygame.QUIT:
                     menu_running = False
-                    pygame.quit()
+                if event.type == pygame_gui.UI_TEXT_ENTRY_CHANGED:
+                    text_box_ip_address = str(event.text)
+
+                self.text_box_ui_manager.process_events(event)
 
             for button_pressed in self.menu_buttons.values():
                 if button_pressed:
                     count_until_quit -= 1
                     if count_until_quit == 0:
+                        print(text_box_ip_address)
                         menu_running = False
-                        pygame.quit()
+                        break
+
+            self.text_box_ui_manager.update(self.UI_REFRESH_RATE)
+            self.text_box_ui_manager.draw_ui(self.screen)
 
             pygame.display.update()
+            self.clock.tick(self.UI_CLOCK_TICKS)
+
+        pygame.quit()
 
     def draw_buttons(self):
         for button in self.menu_buttons:
@@ -67,7 +88,15 @@ class MenuUI:
         for button in self.menu_buttons:
             if button.check_click():
                 self.menu_buttons[button] = True
-                print(self.menu_buttons)
+
+    def check_connection_address(self) -> bool:
+
+
+        try:
+            ipaddress.ip_address(ip_address)
+        except ValueError:
+            return False
+        return True
 
 
 class Button:
