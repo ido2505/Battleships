@@ -13,10 +13,18 @@ class BattleshipsUI:
     WINDOW_HEIGHT = 510
     WINDOW_WIDTH = 1420
 
-    CHAT_X_POSITION = 1130
-    CHAT_Y_POSITION = 470
-    CHAT_HEIGHT = 30
-    CHAT_WIDTH = 280
+    CHAT_TEXT_BOX_X_POSITION = 1130
+    CHAT_TEXT_BOX_Y_POSITION = 470
+    CHAT_TEXT_BOX_HEIGHT = 30
+    CHAT_TEXT_BOX_WIDTH = 280
+
+    CHAT_MESSAGE_TEXT_X_POSITION = CHAT_TEXT_BOX_X_POSITION + 20
+    CHAT_MESSAGE_TEXT_Y_POSITION = 30
+
+    PLAYER_BOARD_X_POSITION = 600
+    PLAYER_BOARD_Y_POSITION = 0
+    ENEMY_BOARD_X_POSITION = 0
+    ENEMY_BOATD_Y_POSITION = 0
 
     UI_CLOCK_TICKS = 30
     UI_REFRESH_RATE = UI_CLOCK_TICKS / 1000
@@ -36,6 +44,10 @@ class BattleshipsUI:
     TILE_NOT_EXIST = (-1, -1)
 
     BACKGROUND_COLOR = (255, 255, 255)
+    CHAT_TEXT_COLOR = (0, 0, 0)
+
+    GAME_FONT = 'freesansbold.ttf'
+    GAME_FONT_SIZE = 16
 
     TIMEOUT = 0
 
@@ -43,10 +55,11 @@ class BattleshipsUI:
         pygame.init()
         self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()
+        self.game_font = pygame.font.Font(self.GAME_FONT, self.GAME_FONT_SIZE)
 
         self.chat_ui_manager = pygame_gui.UIManager((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
         self.chat_text_box = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(
-            (self.CHAT_X_POSITION, self.CHAT_Y_POSITION), (self.CHAT_WIDTH, self.CHAT_HEIGHT)),
+            (self.CHAT_TEXT_BOX_X_POSITION, self.CHAT_TEXT_BOX_Y_POSITION), (self.CHAT_TEXT_BOX_WIDTH, self.CHAT_TEXT_BOX_HEIGHT)),
                                                                  manager=self.chat_ui_manager,
                                                                  object_id='#chat_text_entry')
 
@@ -65,6 +78,7 @@ class BattleshipsUI:
             my_turn = False
         tile_picked = False
         chat_sent_message = None
+        chat_message = None
 
         game_running = True
         while game_running:
@@ -72,9 +86,9 @@ class BattleshipsUI:
             self.screen.fill(self.BACKGROUND_COLOR)
 
             # draw_player_board
-            self.draw_board(600, 0, self.game_manager.player_board)
+            self.draw_board(self.PLAYER_BOARD_X_POSITION, self.PLAYER_BOARD_Y_POSITION, self.game_manager.player_board)
             # draw_enemy board
-            self.draw_board(0, 0, self.game_manager.enemy_board)
+            self.draw_board(self.ENEMY_BOARD_X_POSITION, self.ENEMY_BOATD_Y_POSITION, self.game_manager.enemy_board)
 
             tile_position = self.TILE_NOT_EXIST
             # check for events
@@ -97,7 +111,9 @@ class BattleshipsUI:
             my_turn = self.turn_handler(my_turn, tile_picked, tile_position)
             tile_picked = False
 
-            chat_message = self.chat_message_handler(chat_sent_message)
+            new_message = self.chat_message_handler(chat_sent_message)
+            if new_message is not None:
+                chat_message = new_message
             chat_sent_message = None
 
             # check for win or lost
@@ -115,11 +131,21 @@ class BattleshipsUI:
             self.chat_ui_manager.update(self.UI_REFRESH_RATE)
             self.chat_ui_manager.draw_ui(self.screen)
 
+            if chat_message is not None:
+                self.display_chat_message(chat_message)
+
             pygame.display.update()
             self.clock.tick(self.UI_CLOCK_TICKS)
 
         self.game_communication.close_communication()
         pygame.quit()
+
+    def display_chat_message(self, message_to_display: str) -> None:
+        text = self.game_font.render(message_to_display, True, self.CHAT_TEXT_COLOR, self.BACKGROUND_COLOR)
+        text_rectangle = text.get_rect()
+        text_rectangle.center = (self.CHAT_MESSAGE_TEXT_X_POSITION, self.CHAT_MESSAGE_TEXT_Y_POSITION)
+
+        self.screen.blit(text, text_rectangle)
 
     def chat_message_handler(self, message_to_send: str = None) -> Optional[str]:
         """
@@ -134,7 +160,7 @@ class BattleshipsUI:
             print("sent this message: " + message_to_send)
 
         if ready_chat_socket:
-            chat_message = self.chat_communication.get_message().decode()
+            chat_message = self.chat_communication.get_message().decode()[1:]
             print("new chat message: " + chat_message)
             return chat_message
         else:
@@ -148,8 +174,8 @@ class BattleshipsUI:
         :param tile_position: the position of the tile
         :return: the new tile_picked state
         """
-        if tile_position != self.TILE_NOT_EXIST and \
-                not self.game_manager.check_if_tile_clicked(*tile_position) and my_turn and not tile_picked:
+        if tile_position != self.TILE_NOT_EXIST and not self.game_manager.check_if_tile_clicked(*tile_position) and \
+                my_turn and not tile_picked:
             self.game_communication.send_chosen_tile(*tile_position)
             print("tile picked, position: " + str(tile_position))
             return True
