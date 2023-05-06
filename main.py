@@ -9,18 +9,21 @@ import sys
 
 
 def main():
-    menu_ui.MenuUI()
-    # if sys.argv[1] == 'server':
-    #     game_communication = server_side.ServerSide(player_communication.DEFAULT_GAME_PORT)
-    #     chat_communication = server_side.ServerSide(player_communication.DEFAULT_CHAT_PORT)
-    # elif sys.argv[1] == 'client':
-    #     game_communication = client_side.ClientSide(sys.argv[2], player_communication.DEFAULT_GAME_PORT)
-    #     chat_communication = client_side.ClientSide(sys.argv[2], player_communication.DEFAULT_CHAT_PORT)
-    # else:
-    #     raise Exception
-    #
-    # game = battleships_ui.BattleshipsUI(game_communication, chat_communication)
-    # game.run_game()
+    menu = menu_ui.MenuUI()
+    connection_type, ip_address = menu.run_menu()
+    print(connection_type)
+
+    if connection_type == "Server":
+        game_communication = server_side.ServerSide(player_communication.DEFAULT_GAME_PORT)
+        chat_communication = server_side.ServerSide(player_communication.DEFAULT_CHAT_PORT)
+    elif connection_type == "Connect":
+        game_communication = client_side.ClientSide(ip_address, player_communication.DEFAULT_GAME_PORT)
+        chat_communication = client_side.ClientSide(ip_address, player_communication.DEFAULT_CHAT_PORT)
+    else:
+        raise Exception("Invalid connection type")
+
+    game = battleships_ui.BattleshipsUI(game_communication, chat_communication)
+    game.run_game()
 
 
 if __name__ == "__main__":

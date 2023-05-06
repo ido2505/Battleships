@@ -4,13 +4,17 @@ import ipaddress
 
 
 class MenuUI:
-    MENU_WINDOW_HEIGHT = 600
+    MENU_WINDOW_HEIGHT = 220
     MENU_WINDOW_WIDTH = 220
 
     TEXT_BOX_X_POSITION = 10
     TEXT_BOX_Y_POSITION = 110
     TEXT_BOX_WIDTH = 200
     TEXT_BOX_HEIGHT = 40
+
+    ERROR_TEXT_X_POSITION = 10
+    ERROR_TEXT_Y_POSITION = 160
+    ERROR_TEXT_COLOR = (255, 0, 0)
 
     UI_CLOCK_TICKS = 30
     UI_REFRESH_RATE = UI_CLOCK_TICKS / 1000
@@ -20,30 +24,38 @@ class MenuUI:
     def __init__(self):
         pygame.init()
 
-        self.screen = pygame.display.set_mode((self.MENU_WINDOW_WIDTH, self.MENU_WINDOW_WIDTH))
+        self.screen = pygame.display.set_mode((self.MENU_WINDOW_WIDTH, self.MENU_WINDOW_HEIGHT))
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 30)
 
-        self.menu_buttons = {Button(self.screen, self.font, 'Server', 200, 40, (10, 10), 5): False,
-                             Button(self.screen, self.font, 'Connect', 200, 40, (10, 60), 5): False}
+        self.SERVER_BUTTON_TEXT = "Server"
+        self.CLIENT_BUTTON_TEXT = "Connect"
+
+        self.menu_buttons = {Button(self.screen, self.font, self.SERVER_BUTTON_TEXT, 200, 40, (10, 10), 5): False,
+                             Button(self.screen, self.font, self.CLIENT_BUTTON_TEXT, 200, 40, (10, 60), 5): False}
 
         self.text_box_ui_manager = pygame_gui.UIManager((self.MENU_WINDOW_WIDTH, self.MENU_WINDOW_HEIGHT))
-        self.text_box = pygame_gui.elements.UITextEntryLine(relative_rect=pygame.Rect(
-            (self.TEXT_BOX_X_POSITION, self.TEXT_BOX_Y_POSITION),
-            (self.TEXT_BOX_WIDTH, self.TEXT_BOX_HEIGHT)),
+        self.text_box = pygame_gui.elements.UITextEntryLine(
+            relative_rect=pygame.Rect(
+                (self.TEXT_BOX_X_POSITION, self.TEXT_BOX_Y_POSITION),
+                (self.TEXT_BOX_WIDTH, self.TEXT_BOX_HEIGHT)),
             manager=self.text_box_ui_manager,
             object_id='#ip_text_entry'
         )
 
-        self.run_menu()
+        self.error_font = pygame.font.Font(None, 16)
+        self.error_text = self.error_font.render('Wrong ip address!', True, self.ERROR_TEXT_COLOR, None)
 
     def run_menu(self):
         """
         this function is the main menu loop
         """
         menu_running = True
+        display_error = False
         count_until_quit = 10
         text_box_ip_address = ""
+        connection_type = ""
+        ip_address = None
 
         while menu_running:
             # fill background
@@ -64,13 +76,37 @@ class MenuUI:
 
                 self.text_box_ui_manager.process_events(event)
 
-            for button_pressed in self.menu_buttons.values():
-                if button_pressed:
+            # for button_pressed in self.menu_buttons.values():
+            #     if button_pressed:
+            #         count_until_quit -= 1
+            #         if count_until_quit == 0:
+            #             print(text_box_ip_address)
+            #             menu_running = False
+            #             break
+
+            # check for server button press
+            for button, is_button_pressed in self.menu_buttons.items():
+                if is_button_pressed:
                     count_until_quit -= 1
                     if count_until_quit == 0:
-                        print(text_box_ip_address)
-                        menu_running = False
-                        break
+                        if button.text == self.SERVER_BUTTON_TEXT:
+                            connection_type = self.SERVER_BUTTON_TEXT
+                            menu_running = False
+                        elif button.text == self.CLIENT_BUTTON_TEXT:
+                            valid_text = self.check_connection_address(self.text_box.text)
+                            if valid_text:
+                                connection_type = self.CLIENT_BUTTON_TEXT
+                                ip_address = self.text_box.text
+                                menu_running = False
+                            else:
+                                display_error = True
+                                print("not valid ip address")
+                                self.text_box.set_text("")
+                                self.menu_buttons[button] = False
+                                count_until_quit = 10
+
+            if display_error:
+                self.screen.blit(self.error_text, (self.ERROR_TEXT_X_POSITION, self.ERROR_TEXT_Y_POSITION))
 
             self.text_box_ui_manager.update(self.UI_REFRESH_RATE)
             self.text_box_ui_manager.draw_ui(self.screen)
@@ -79,6 +115,7 @@ class MenuUI:
             self.clock.tick(self.UI_CLOCK_TICKS)
 
         pygame.quit()
+        return connection_type, ip_address
 
     def draw_buttons(self):
         for button in self.menu_buttons:
@@ -89,9 +126,8 @@ class MenuUI:
             if button.check_click():
                 self.menu_buttons[button] = True
 
-    def check_connection_address(self) -> bool:
-
-
+    def check_connection_address(self, ip_address) -> bool:
+        print(ip_address)
         try:
             ipaddress.ip_address(ip_address)
         except ValueError:
